@@ -1,0 +1,53 @@
+name: Android APK
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Versi dari tag
+        id: v
+        run: echo "ver=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        if: startsWith(github.ref, 'refs/tags/')
+
+      - name: Build APK
+        working-directory: app
+        run: |
+          flutter pub get
+          if [ -n "${{ steps.v.outputs.ver }}" ]; then
+            flutter build apk --release --build-name="${{ steps.v.outputs.ver }}" --build-number="${{ github.run_number }}"
+          else
+            flutter build apk --release
+          fi
+
+      - name: Rename APK
+        run: cp app/build/app/outputs/flutter-apk/app-release.apk "owner-valuation-${{ steps.v.outputs.ver || github.run_number }}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: '*.apk'
+
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: '*.apk'
+          generate_release_notes: true
