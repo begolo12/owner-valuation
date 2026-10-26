@@ -19,44 +19,53 @@ class Criterion {
 
 /// Dua kriteria yang dinilai manual.
 const criteria = <Criterion>[
-  Criterion('holding', 'Kekuatan holding', 'Seberapa kuat holding di belakang proyek ini?', [
-    Level(100, 'Sangat kuat', 'Brand dominan, kas solid, track record bersih'),
-    Level(80, 'Kuat', 'Portofolio sehat, pembayaran lancar'),
-    Level(60, 'Cukup', 'Stabil, bergantung beberapa proyek'),
-    Level(40, 'Lemah', 'Kas ketat, bergantung proyek baru'),
-    Level(20, 'Sangat lemah', 'Ada riwayat gagal bayar atau sengketa'),
+  Criterion('holding', 'Kredibilitas owner',
+      'Siapa yang akan menerima barang dan menandatangani PO?', [
+    Level(100, 'BUMN / korporasi besar', 'PO resmi, termin jelas, ada jaminan pembayaran'),
+    Level(80, 'Developer mapan', 'Proyek berjalan, riwayat bayar ke supplier lancar'),
+    Level(60, 'Kontraktor menengah', 'Kredibel, tapi bergantung arus kas proyek'),
+    Level(40, 'Kontraktor kecil', 'Kas tipis, pembayaran sering menunggu owner'),
+    Level(20, 'Owner perorangan', 'Tanpa badan usaha, sulit ditagih'),
   ]),
-  Criterion('projection', 'Proyeksi ke depan', 'Bagaimana prospek nilai proyek ini?', [
-    Level(100, 'Sangat cerah', 'Permintaan tinggi, harga naik konsisten'),
-    Level(80, 'Cerah', 'Permintaan di atas rata-rata'),
-    Level(60, 'Stabil', 'Sesuai pasar'),
-    Level(40, 'Menurun', 'Harga atau permintaan melemah'),
-    Level(20, 'Tidak jelas', 'Pasar belum terbaca'),
+  Criterion('projection', 'Prospek proyek', 'Bagaimana kelanjutan proyek ini ke depan?', [
+    Level(100, 'Multi-tahap, dana siap', 'Tahap berikutnya sudah kontrak, anggaran tersedia'),
+    Level(80, 'Berjalan lancar', 'Progres fisik sesuai jadwal, kebutuhan material lanjut'),
+    Level(60, 'Sesuai rencana', 'Tidak ada percepatan, tapi tidak ada tanda stop'),
+    Level(40, 'Melambat', 'Progres seret, pembelian material menurun'),
+    Level(20, 'Berisiko stop', 'Pekerjaan berhenti atau dana belum jelas'),
   ]),
 ];
 
 /// Skor cara pembayaran. Diturunkan dari pilihan, tidak diisi manual.
+/// Harus sama dengan PAYMENT_SCORES di server/score.js.
 double paymentScore(String method) => switch (method) {
       'cash' => 100,
-      'kpr' => 70,
-      'installment' => 50,
+      'scf' => 90,
+      'lc' => 85,
+      'top' => 60,
+      'termin' => 45,
+      'retention' => 30,
       _ => 30,
     };
 
 String paymentHint(String method) => switch (method) {
-      'cash' => 'Lunas di muka — risiko paling kecil',
-      'kpr' => 'Didanai bank — risiko pindah ke bank',
-      'installment' => 'Dicicil ke developer — perlu pemantauan',
+      'cash' => 'Dibayar sebelum barang dikirim — risiko paling kecil',
+      'scf' => 'Supply Chain Financing — bank/fintech melunasi tagihan',
+      'lc' => 'Letter of Credit / SBLC — dijamin bank penerbit',
+      'top' => 'Open account — supplier menalangi dulu, ditagih belakangan',
+      'termin' => 'Tagihan mengikuti progres pekerjaan',
+      'retention' => 'Termin dengan retensi 5–10% ditahan sampai PHO',
       _ => 'Skema lain / belum pasti',
     };
 
-/// Skor tenor: makin pendek makin baik.
-double tenorScore(int months) {
-  if (months <= 6) return 100;
-  if (months <= 12) return 80;
-  if (months <= 24) return 60;
-  if (months <= 36) return 40;
-  return 20;
+/// Skor tenor (HARI): makin pendek makin baik.
+/// Harus sama dengan tenorScore di server/score.js.
+double tenorScore(int days) {
+  if (days <= 14) return 100;
+  if (days <= 30) return 85;
+  if (days <= 60) return 65;
+  if (days <= 90) return 45;
+  return 25;
 }
 
 /// Level terdekat dengan skor tersimpan, untuk prefill saat menilai ulang.

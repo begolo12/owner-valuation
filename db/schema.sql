@@ -26,8 +26,8 @@ create table if not exists assessments (
   owner_id          uuid not null references owners(id) on delete cascade,
   quarter           text not null check (quarter ~ '^\d{4}-Q[1-4]$'),
   model             text not null check (model in ('market_baru', 'market_existing')),
-  payment_method    text not null check (payment_method in ('cash', 'kpr', 'installment', 'other')),
-  payment_tenor     int  not null check (payment_tenor between 0 and 600),
+  payment_method    text not null check (payment_method in ('cash', 'scf', 'lc', 'top', 'termin', 'retention')),
+  payment_tenor     int  not null check (payment_tenor between 0 and 365),
   paid_amount       numeric(18, 2) not null default 0,
   projection_value  numeric(18, 2) not null default 0,
   projection_notes  text,
@@ -61,3 +61,25 @@ create trigger owners_touch before update on owners
 drop trigger if exists assessments_touch on assessments;
 create trigger assessments_touch before update on assessments
   for each row execute function touch_updated_at();
+
+-- Migrasi dari skema bayar properti (kpr/installment) ke skema konstruksi.
+-- Idempotent: drop lalu buat ulang constraint.
+alter table assessments drop constraint if exists assessments_payment_method_check;
+alter table assessments drop constraint if exists assessments_payment_tenor_check;
+
+-- Nilai lama yang tidak punya padanan di skema konstruksi dipetakan ke 'termin'
+-- supaya data historis tetap valid.
+update assessments set payment_method = 'termin'
+ where payment_method in ('kpr', 'installment', 'other');
+
+alter table assessments
+  add constraint assessments_payment_method_check
+  check (payment_method in ('cash', 'scf', 'lc', 'top', 'termin', 'retention'));
+
+-- Tenor lama dalam BULAN; konversi ke HARI (1 bulan = 30 hari, cap 365).
+update assessments set payment_tenor = least(payment_tenor * 30, 365)
+ where payment_tenor > 365;
+
+alter table assessments
+  add constraint assessments_payment_tenor_check
+  check (payment_tenor between 0 and 365);

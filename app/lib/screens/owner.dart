@@ -217,7 +217,7 @@ class _AssessTile extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '${paymentLabels[a.paymentMethod] ?? a.paymentMethod} · ${a.paymentTenor} bln · '
+            '${paymentLabels[a.paymentMethod] ?? a.paymentMethod} · ${a.paymentTenor} hari · '
             'bayar ${rupiah(a.paidAmount)} · proyeksi ${rupiah(a.projectionValue)}',
             style: theme.textTheme.small,
           ),
@@ -267,10 +267,10 @@ class _AssessDialogState extends State<_AssessDialog> {
   late String _model;
   late String _quarter;
   late String _payment;
-  int _tenor = 12;
-  String _holdingLevel = 'Cukup';
-  String _projectionLevel = 'Stabil';
-  final _tenorCtl = TextEditingController(text: '12');
+  int _tenor = 30;
+  String _holdingLevel = 'Kontraktor menengah';
+  String _projectionLevel = 'Sesuai rencana';
+  final _tenorCtl = TextEditingController(text: '30');
   final _paidCtl = TextEditingController();
   final _projCtl = TextEditingController();
   final _notesCtl = TextEditingController();
@@ -336,6 +336,7 @@ class _AssessDialogState extends State<_AssessDialog> {
   double _num(TextEditingController c) =>
       double.tryParse(c.text.replaceAll('.', '').replaceAll(',', '.')) ?? 0;
 
+  /// Skor lokal hanya untuk pratinjau; server menghitung ulang.
   Map<String, double> get _scores => {
         'holding': _levelScore('holding', _holdingLevel),
         'payment': paymentScore(_payment),
@@ -361,7 +362,11 @@ class _AssessDialogState extends State<_AssessDialog> {
         paidAmount: _num(_paidCtl),
         projectionValue: _num(_projCtl),
         projectionNotes: _notesCtl.text.trim().isEmpty ? null : _notesCtl.text.trim(),
-        scores: _scores,
+        // Server menolak skor bayar/tenor dari klien — hanya dua ini yang dikirim.
+        scores: {
+          'holding': _scores['holding']!,
+          'projection': _scores['projection']!,
+        },
       );
       if (!mounted) return;
       Navigator.pop(context, true);
@@ -454,11 +459,11 @@ class _AssessDialogState extends State<_AssessDialog> {
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(paymentHint(_payment), style: theme.textTheme.small),
               ),
-              const _Label('Masa pembayaran (bulan)'),
+              const _Label('Tenor pembayaran (hari)'),
               ShadInput(
                 controller: _tenorCtl,
                 keyboardType: TextInputType.number,
-                placeholder: const Text('12'),
+                placeholder: const Text('30'),
                 onChanged: (v) => setState(() => _tenor = int.tryParse(v) ?? 0),
               ),
               Padding(

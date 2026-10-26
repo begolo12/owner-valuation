@@ -1,8 +1,16 @@
 import { HttpError, json, num, oneOf, readBody, requireToken, str } from './http.js';
 import { q } from './db.js';
-import { MODELS, QUARTER_RE, WEIGHTS, computeScore, currentQuarter } from './score.js';
-
-const PAYMENT_METHODS = ['cash', 'kpr', 'installment', 'other'];
+import {
+  MODELS,
+  PAYMENT_METHODS,
+  PAYMENT_SCORES,
+  QUARTER_RE,
+  WEIGHTS,
+  computeScore,
+  currentQuarter,
+  paymentScore,
+  tenorScore,
+} from './score.js';
 
 const holdingOut = (r) => ({
   id: r.id,
@@ -76,6 +84,7 @@ const routes = [
     models: MODELS,
     weights: WEIGHTS,
     paymentMethods: PAYMENT_METHODS,
+    paymentScores: PAYMENT_SCORES,
     currentQuarter: currentQuarter(),
   })],
 
@@ -229,7 +238,9 @@ const routes = [
     const quarter = quarterParam(body.quarter);
     const model = oneOf(body.model, 'model', MODELS);
     const paymentMethod = oneOf(body.paymentMethod, 'paymentMethod', PAYMENT_METHODS);
-    const paymentTenor = num(body.paymentTenor, 'paymentTenor', { min: 0, max: 600 });
+    // Tenor dalam HARI. Skor pembayaran & tenor diturunkan di server supaya
+    // web dan APK tidak bisa memberi hasil berbeda.
+    const paymentTenor = num(body.paymentTenor, 'paymentTenor', { min: 0, max: 365 });
     const paidAmount = num(body.paidAmount, 'paidAmount', { min: 0, optional: true, fallback: 0 });
     const projectionValue = num(body.projectionValue, 'projectionValue', {
       min: 0,
@@ -242,9 +253,9 @@ const routes = [
     });
     const scores = body.scores ?? {};
     const holding = num(scores.holding, 'scores.holding', { min: 0, max: 100 });
-    const payment = num(scores.payment, 'scores.payment', { min: 0, max: 100 });
-    const tenor = num(scores.tenor, 'scores.tenor', { min: 0, max: 100 });
     const projection = num(scores.projection, 'scores.projection', { min: 0, max: 100 });
+    const payment = paymentScore(paymentMethod);
+    const tenor = tenorScore(paymentTenor);
 
     const { total, grade } = computeScore(model, { holding, payment, tenor, projection });
 

@@ -1,22 +1,41 @@
 # Penilaian Owner
 
-Aplikasi pribadi untuk menilai owner/proyek baru per kuartal, dengan dua model penilaian:
-**Market Baru** dan **Market Existing**.
+Aplikasi pribadi untuk menilai owner/proyek supplier **konstruksi** per kuartal, dengan
+dua model penilaian: **Market Baru** dan **Market Existing**.
 
-- Flutter (Android APK + web) di `app/`
-- Backend Node.js serverless di `api/` (Vercel Functions)
+- Web: React + Vite di `web-app/` (build ke `web-build/`)
+- Android APK: Flutter di `app/`
+- Backend Node.js serverless di `api/` (Vercel Functions), logika di `server/`
 - Database Postgres (Neon, region Singapore) — skema di `db/schema.sql`
 
 ## Model penilaian
 
-| Kriteria  | Market Baru | Market Existing |
-|-----------|-------------|-----------------|
-| Holding   | 25%         | 35%             |
-| Bayar     | 25%         | 30%             |
-| Tenor     | 15%         | 20%             |
-| Proyeksi  | 35%         | 15%             |
+| Kriteria        | Market Baru | Market Existing |
+|-----------------|-------------|-----------------|
+| Kredibilitas owner | 25%      | 35%             |
+| Skema bayar     | 25%         | 30%             |
+| Tenor (hari)    | 15%         | 20%             |
+| Prospek proyek  | 35%         | 15%             |
 
 Total 0–100 → grade A (≥85), B (≥70), C (≥55), D (≥40), E (<40).
+
+### Skema bayar konstruksi
+
+| Skema | Skor | Arti |
+|---|---|---|
+| `cash` | 100 | Dibayar sebelum barang dikirim |
+| `scf` | 90 | Supply Chain Financing — bank/fintech melunasi tagihan |
+| `lc` | 85 | Letter of Credit / SBLC — dijamin bank penerbit |
+| `top` | 60 | Open account — supplier menalangi dulu |
+| `termin` | 45 | Tagihan mengikuti progres pekerjaan |
+| `retention` | 30 | Termin dengan retensi 5–10% ditahan sampai PHO |
+
+### Skor tenor (hari)
+
+≤14 → 100 · 15–30 → 85 · 31–60 → 65 · 61–90 → 45 · >90 → 25.
+
+Skor skema bayar dan tenor **selalu dihitung server** dari `paymentMethod` dan
+`paymentTenor`. Klien hanya mengirim dua skor manual: `holding` dan `projection`.
 
 Satu owner punya satu nilai per **kuartal** per **model**. Menyimpan kuartal yang sama
 akan menimpa nilai sebelumnya (`unique(owner_id, quarter, model)`), sehingga riwayat
@@ -28,8 +47,8 @@ kuartalan tetap rapi dan penilaian "saat ini" selalu kuartal berjalan.
 2. Tambah **holding**.
 3. Tambah **owner / proyek** di dalam holding.
 4. Tekan **Nilai** → pilih model + kuartal, lalu jawab pilihan yang tersedia:
-   - **Cara bayar** dan **tenor** menentukan skornya sendiri.
-   - **Kekuatan holding** dan **proyeksi** dipilih dari 5 tingkat berlabel.
+   - **Skema bayar** dan **tenor** menentukan skornya sendiri.
+   - **Kredibilitas owner** dan **prospek proyek** dipilih dari 5 tingkat berlabel.
    - Field Rp (sudah dibayar, proyeksi nilai) opsional, hanya untuk catatan.
    - Menilai ulang kuartal + model yang sama akan membuka nilai lama untuk dikoreksi.
 5. Dashboard menampilkan rata-rata per model, peringkat teratas, dan progres penilaian.
@@ -71,7 +90,26 @@ npx vercel env add APP_TOKEN production
 npx vercel --prod
 ```
 
-Web statis ada di `web-build/` (hasil `flutter build web --release --output ../web-build`).
+Web statis ada di `web-build/`, hasil build React+Vite:
+
+```bash
+cd web-app && npm install && npm run build   # → ../web-build
+```
+
+## Tes lokal
+
+```bash
+npm test                                     # matematika skor server
+cd app && flutter test                       # rubrik + pratinjau klien
+
+# API + web lokal (butuh DATABASE_URL dan APP_TOKEN)
+export $(grep -v '^#' .env.local | xargs)    # atau set manual
+node scripts/dev-api.js                      # API di :5198
+cd web-app && npm run dev                    # web di :5199, /api diteruskan ke :5198
+```
+
+`vite dev` meneruskan `/api` ke `http://127.0.0.1:5198`. Set `OV_API` kalau ingin
+menembak server lain, mis. `OV_API=https://owner-valuation.vercel.app npm run dev`.
 
 ## Rilis Android
 
@@ -80,7 +118,7 @@ Menu **Pengaturan → Cek pembaruan** di aplikasi membaca rilis terbaru itu dan 
 mengunduh + membuka installer.
 
 ```bash
-git tag v1.0.1 && git push origin v1.0.1
+git tag v1.2.0 && git push origin v1.2.0
 ```
 
 ## Tes

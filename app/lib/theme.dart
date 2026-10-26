@@ -45,9 +45,11 @@ const modelLabels = {
 
 const paymentLabels = {
   'cash': 'Cash',
-  'kpr': 'KPR',
-  'installment': 'Cicilan',
-  'other': 'Lainnya',
+  'scf': 'SCF',
+  'lc': 'LC / SBLC',
+  'top': 'TOP (open account)',
+  'termin': 'Termin progres',
+  'retention': 'Termin + retensi',
 };
 
 String rupiah(num value) {
