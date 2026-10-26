@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../api.dart';
+import '../main.dart' show homeTab;
 import '../theme.dart';
 import '../widgets.dart';
 import 'holding.dart';
@@ -17,6 +18,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Dashboard? _dash;
   List<Holding> _holdings = const [];
   String? _error;
+  bool _authError = false;
   bool _loading = true;
 
   @override
@@ -43,6 +45,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (!mounted) return;
       setState(() {
         _error = e is ApiException ? e.message : 'Gagal memuat: $e';
+        _authError = e is ApiException && (e.status == 401 || e.status == 403);
         _loading = false;
       });
     }
@@ -88,7 +91,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 20),
             if (_error != null) ...[
-              Notice(message: _error!, icon: Icons.error_outline),
+              Notice(
+                message: _error!,
+                icon: Icons.error_outline,
+                action: _authError
+                    ? ShadButton.outline(
+                        size: ShadButtonSize.sm,
+                        onPressed: () => homeTab.value = 1,
+                        child: const Text('Buka Pengaturan'),
+                      )
+                    : null,
+              ),
               const SizedBox(height: 16),
             ],
             if (_loading)

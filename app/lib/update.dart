@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:open_filex/open_filex.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:path_provider/path_provider.dart';
@@ -59,7 +60,7 @@ Future<UpdateInfo?> checkUpdate() async {
 
 /// Unduh APK lalu buka installer Android. Di luar Android, buka halaman rilis.
 Future<String> downloadAndInstall(UpdateInfo info, void Function(double) onProgress) async {
-  if (!Platform.isAndroid || !info.hasApk) {
+  if (kIsWeb || !Platform.isAndroid || !info.hasApk) {
     await launchUrl(Uri.parse(info.pageUrl), mode: LaunchMode.externalApplication);
     return 'Membuka halaman rilis di browser';
   }

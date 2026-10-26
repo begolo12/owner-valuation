@@ -9,6 +9,9 @@ import 'theme.dart';
 
 final themeMode = ValueNotifier<ThemeMode>(ThemeMode.dark);
 
+/// Tab aktif di navigasi bawah. Dipakai layar lain untuk melompat ke Pengaturan.
+final homeTab = ValueNotifier<int>(0);
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Api.i.load();
@@ -44,26 +47,27 @@ class Home extends StatefulWidget {
 }
 
 class _HomeState extends State<Home> {
-  int _tab = 0;
-
   @override
   Widget build(BuildContext context) {
     final scheme = ShadTheme.of(context).colorScheme;
-    return Scaffold(
-      backgroundColor: scheme.background,
-      body: IndexedStack(
-        index: _tab,
-        children: const [DashboardScreen(), SettingsScreen()],
-      ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _tab,
-        onDestinationSelected: (i) => setState(() => _tab = i),
+    return ValueListenableBuilder<int>(
+      valueListenable: homeTab,
+      builder: (context, tab, _) => Scaffold(
         backgroundColor: scheme.background,
-        indicatorColor: scheme.accent,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
-          NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Pengaturan'),
-        ],
+        body: IndexedStack(
+          index: tab,
+          children: const [DashboardScreen(), SettingsScreen()],
+        ),
+        bottomNavigationBar: NavigationBar(
+          selectedIndex: tab,
+          onDestinationSelected: (i) => homeTab.value = i,
+          backgroundColor: scheme.background,
+          indicatorColor: scheme.accent,
+          destinations: const [
+            NavigationDestination(icon: Icon(Icons.dashboard_outlined), label: 'Dashboard'),
+            NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Pengaturan'),
+          ],
+        ),
       ),
     );
   }

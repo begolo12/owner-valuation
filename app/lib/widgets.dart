@@ -91,10 +91,11 @@ class StatCard extends StatelessWidget {
 
 /// Kotak pesan error/kosong.
 class Notice extends StatelessWidget {
-  const Notice({super.key, required this.message, this.icon = Icons.info_outline});
+  const Notice({super.key, required this.message, this.icon = Icons.info_outline, this.action});
 
   final String message;
   final IconData icon;
+  final Widget? action;
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +107,7 @@ class Notice extends StatelessWidget {
           Icon(icon, size: 18, color: theme.colorScheme.mutedForeground),
           const SizedBox(width: 12),
           Expanded(child: Text(message, style: theme.textTheme.muted)),
+          if (action != null) ...[const SizedBox(width: 12), action!],
         ],
       ),
     );

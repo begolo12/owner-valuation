@@ -46,6 +46,16 @@ class _OwnerScreenState extends State<OwnerScreen> {
   }
 
   Future<void> _assess() async {
+    // Dialog butuh meta (model, bobot, kuartal). Ambil kalau belum ada.
+    if (Api.i.meta == null) {
+      try {
+        await Api.i.fetchMeta();
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _error = e is ApiException ? e.message : '$e');
+        return;
+      }
+    }
     final saved = await showShadDialog<bool>(
       context: context,
       builder: (_) => _AssessDialog(ownerId: widget.ownerId),
