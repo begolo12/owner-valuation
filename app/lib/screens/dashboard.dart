@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../api.dart';
-import '../main.dart' show homeTab;
+import '../main.dart' show dataVersion, homeTab;
 import '../theme.dart';
 import '../widgets.dart';
 import 'holding.dart';
@@ -29,7 +29,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    dataVersion.addListener(_load);
     _load();
+  }
+
+  @override
+  void dispose() {
+    dataVersion.removeListener(_load);
+    super.dispose();
   }
 
   /// Data lama tetap tampil selama refresh: tidak ada spinner saat kembali

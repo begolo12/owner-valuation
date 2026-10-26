@@ -4,7 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../api.dart';
-import '../main.dart' show themeMode;
+import '../main.dart' show dataVersion, themeMode;
 import '../update.dart';
 import '../widgets.dart';
 
@@ -45,6 +45,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final meta = await Api.i.fetchMeta();
       if (!mounted) return;
       setState(() => _status = 'Tersambung. Kuartal berjalan ${meta.currentQuarter}.');
+      dataVersion.value++;
     } catch (e) {
       if (!mounted) return;
       setState(() => _status = 'Gagal: ${e is ApiException ? e.message : e}');

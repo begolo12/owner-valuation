@@ -13,6 +13,10 @@ final themeMode = ValueNotifier<ThemeMode>(ThemeMode.dark);
 /// Tab aktif di navigasi bawah. Dipakai layar lain untuk melompat ke Pengaturan.
 final homeTab = ValueNotifier<int>(0);
 
+/// Dinaikkan saat koneksi/token berubah, supaya dashboard memuat ulang
+/// tanpa perlu pull-to-refresh manual.
+final dataVersion = ValueNotifier<int>(0);
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Api.i.load();
