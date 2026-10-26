@@ -24,10 +24,27 @@ kuartalan tetap rapi dan penilaian "saat ini" selalu kuartal berjalan.
 
 ## Alur pakai
 
-1. Tambah **holding**.
-2. Tambah **owner / proyek** di dalam holding.
-3. Tekan **Nilai** → pilih model + kuartal, isi cara bayar, masa bayar, proyeksi, dan skor 0–100.
-4. Dashboard menampilkan rata-rata per model, peringkat teratas, dan progres penilaian.
+1. Buka aplikasi → masukkan **token aplikasi** sekali per perangkat (token disimpan lokal).
+2. Tambah **holding**.
+3. Tambah **owner / proyek** di dalam holding.
+4. Tekan **Nilai** → pilih model + kuartal, lalu jawab pilihan yang tersedia:
+   - **Cara bayar** dan **tenor** menentukan skornya sendiri.
+   - **Kekuatan holding** dan **proyeksi** dipilih dari 5 tingkat berlabel.
+   - Field Rp (sudah dibayar, proyeksi nilai) opsional, hanya untuk catatan.
+   - Menilai ulang kuartal + model yang sama akan membuka nilai lama untuk dikoreksi.
+5. Dashboard menampilkan rata-rata per model, peringkat teratas, dan progres penilaian.
+
+## Token aplikasi
+
+Token **tidak** ikut di-build ke APK maupun bundle web. Nilainya hanya ada di
+environment Vercel (`APP_TOKEN`) dan di secure storage perangkat setelah diisi.
+
+```bash
+openssl rand -hex 24 | npx vercel env add APP_TOKEN production
+```
+
+Rotasi: jalankan perintah di atas dengan `--force`, lalu isi ulang token di layar
+Pengaturan tiap perangkat. Token lama langsung ditolak (401).
 
 ## API
 

@@ -26,7 +26,8 @@ class _HoldingScreenState extends State<HoldingScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    // Spinner hanya saat pertama; refresh memakai data lama agar terasa instan.
+    if (_owners.isEmpty) setState(() => _loading = true);
     try {
       final detail = await Api.i.holdingDetail(widget.holding.id);
       if (!mounted) return;

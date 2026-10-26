@@ -6,11 +6,6 @@ import 'package:http/http.dart' as http;
 /// Ganti setelah deploy Vercel.
 const kDefaultBaseUrl = 'https://owner-valuation.vercel.app';
 
-/// Token bawaan supaya aplikasi langsung terpakai tanpa isi manual.
-/// Ini gate lunak, bukan autentikasi: nilainya ada di bundle JS publik.
-/// Ganti lewat layar Pengaturan kalau perlu rotasi.
-const kDefaultToken = '539ddf572633b2f47e101b5e2efd06505133ee009e93fdf0';
-
 class ApiException implements Exception {
   ApiException(this.status, this.message);
   final int status;
@@ -244,7 +239,7 @@ class Api {
   static const _kToken = 'app_token';
 
   String baseUrl = kDefaultBaseUrl;
-  String token = kDefaultToken;
+  String token = '';
   Meta? meta;
 
   /// Baca setelan tersimpan. Kalau secure storage tidak tersedia
@@ -252,10 +247,10 @@ class Api {
   Future<void> load() async {
     try {
       baseUrl = await _storage.read(key: _kBase) ?? kDefaultBaseUrl;
-      token = await _storage.read(key: _kToken) ?? kDefaultToken;
+      token = await _storage.read(key: _kToken) ?? '';
     } catch (_) {
       baseUrl = kDefaultBaseUrl;
-      token = kDefaultToken;
+      token = '';
     }
   }
 

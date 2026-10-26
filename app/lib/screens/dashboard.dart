@@ -15,8 +15,13 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  Dashboard? _dash;
-  List<Holding> _holdings = const [];
+  /// Cache lintas-instance: balik dari layar lain langsung tampil tanpa
+  /// menunggu jaringan, lalu diperbarui di belakang.
+  static Dashboard? _cacheDash;
+  static List<Holding> _cacheHoldings = const [];
+
+  Dashboard? _dash = _cacheDash;
+  List<Holding> _holdings = _cacheHoldings;
   String? _error;
   bool _authError = false;
   bool _loading = true;
@@ -27,18 +32,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _load();
   }
 
+  /// Data lama tetap tampil selama refresh: tidak ada spinner saat kembali
+  /// dari layar lain. Spinner hanya muncul pada pemuatan pertama.
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    final first = _dash == null;
+    if (first) setState(() => _loading = true);
+    setState(() => _error = null);
     try {
-      await Api.i.fetchMeta();
+      if (Api.i.meta == null) await Api.i.fetchMeta();
       final results = await Future.wait([Api.i.dashboard(), Api.i.holdings()]);
       if (!mounted) return;
+      _cacheDash = results[0] as Dashboard;
+      _cacheHoldings = results[1] as List<Holding>;
       setState(() {
-        _dash = results[0] as Dashboard;
-        _holdings = results[1] as List<Holding>;
+        _dash = _cacheDash;
+        _holdings = _cacheHoldings;
         _loading = false;
       });
     } catch (e) {

@@ -289,50 +289,49 @@ const routes = [
   // ---- ringkasan ----
   ['GET', /^dashboard$/, async (req) => {
     const quarter = quarterParam(req.query.quarter);
-    const [summary] = await q(
+    // Satu round trip: empat query terpisah butuh ~4x latensi Neon.
+    const [row] = await q(
       `select
-         (select count(*) from holdings) as holdings,
-         (select count(*) from owners) as owners,
-         (select count(*) from assessments where quarter = $1) as assessed,
-         (select count(*) from owners o
-            where not exists (select 1 from assessments a
-                               where a.owner_id = o.id and a.quarter = $1)) as missing`,
-      [quarter],
-    );
-    const byModel = await q(
-      `select model, count(*)::int as count, round(avg(total_score), 2) as avg
-         from assessments where quarter = $1 group by model order by model`,
-      [quarter],
-    );
-    const trend = await q(
-      `select quarter, model, count(*)::int as count, round(avg(total_score), 2) as avg
-         from assessments group by quarter, model order by quarter desc, model limit 24`,
-    );
-    const top = await q(
-      `select o.id, o.name, o.project, h.name as holding, a.model, a.total_score, a.grade
-         from assessments a
-         join owners o on o.id = a.owner_id
-         join holdings h on h.id = o.holding_id
-        where a.quarter = $1
-        order by a.total_score desc, lower(o.name) limit 10`,
+         json_build_object(
+           'holdings', (select count(*) from holdings),
+           'owners',   (select count(*) from owners),
+           'assessed', (select count(*) from assessments where quarter = $1),
+           'missing',  (select count(*) from owners o
+                          where not exists (select 1 from assessments a
+                                             where a.owner_id = o.id and a.quarter = $1))
+         ) as totals,
+         (select coalesce(json_agg(t), '[]'::json) from (
+            select model, count(*)::int as count, round(avg(total_score), 2)::float8 as avg
+              from assessments where quarter = $1 group by model order by model) t) as by_model,
+         (select coalesce(json_agg(t), '[]'::json) from (
+            select quarter, model, count(*)::int as count, round(avg(total_score), 2)::float8 as avg
+              from assessments group by quarter, model order by quarter desc, model limit 24) t) as trend,
+         (select coalesce(json_agg(t), '[]'::json) from (
+            select o.id, o.name, o.project, h.name as holding, a.model,
+                   a.total_score, a.grade
+              from assessments a
+              join owners o on o.id = a.owner_id
+              join holdings h on h.id = o.holding_id
+             where a.quarter = $1
+             order by a.total_score desc, lower(o.name) limit 10) t) as top`,
       [quarter],
     );
     return {
       quarter,
       totals: {
-        holdings: Number(summary.holdings),
-        owners: Number(summary.owners),
-        assessed: Number(summary.assessed),
-        missing: Number(summary.missing),
+        holdings: Number(row.totals.holdings),
+        owners: Number(row.totals.owners),
+        assessed: Number(row.totals.assessed),
+        missing: Number(row.totals.missing),
       },
-      byModel: byModel.map((r) => ({ model: r.model, count: r.count, avg: Number(r.avg) })),
-      trend: trend.map((r) => ({
+      byModel: row.by_model.map((r) => ({ model: r.model, count: r.count, avg: Number(r.avg) })),
+      trend: row.trend.map((r) => ({
         quarter: r.quarter,
         model: r.model,
         count: r.count,
         avg: Number(r.avg),
       })),
-      top: top.map((r) => ({
+      top: row.top.map((r) => ({
         ownerId: r.id,
         name: r.name,
         project: r.project,

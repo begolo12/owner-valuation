@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:shadcn_ui/shadcn_ui.dart';
 
 import '../api.dart';
+import '../criteria.dart';
 import '../theme.dart';
 import '../widgets.dart';
 
@@ -26,7 +27,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
   }
 
   Future<void> _load() async {
-    setState(() => _loading = true);
+    if (_owner == null) setState(() => _loading = true);
     try {
       final d = await Api.i.ownerDetail(widget.ownerId);
       if (!mounted) return;
@@ -58,7 +59,7 @@ class _OwnerScreenState extends State<OwnerScreen> {
     }
     final saved = await showShadDialog<bool>(
       context: context,
-      builder: (_) => _AssessDialog(ownerId: widget.ownerId),
+      builder: (_) => _AssessDialog(ownerId: widget.ownerId, existing: _assessments),
     );
     if (saved == true) await _load();
   }
@@ -248,10 +249,14 @@ const scoreLabels = {
   'projection': 'Proyeksi',
 };
 
-/// Form penilaian satu kuartal untuk satu model.
+
+/// Form penilaian satu kuartal. Urutannya mengikuti cara orang berpikir:
+/// model & kuartal → pembayaran → kondisi holding → prospek.
+/// Hanya dua hal yang dinilai manual; sisanya diturunkan dari fakta.
 class _AssessDialog extends StatefulWidget {
-  const _AssessDialog({required this.ownerId});
+  const _AssessDialog({required this.ownerId, this.existing = const []});
   final String ownerId;
+  final List<Assessment> existing;
 
   @override
   State<_AssessDialog> createState() => _AssessDialogState();
@@ -263,12 +268,8 @@ class _AssessDialogState extends State<_AssessDialog> {
   late String _quarter;
   late String _payment;
   int _tenor = 12;
-  final Map<String, double> _scores = {
-    'holding': 70,
-    'payment': 70,
-    'tenor': 70,
-    'projection': 70,
-  };
+  String _holdingLevel = 'Cukup';
+  String _projectionLevel = 'Stabil';
   final _tenorCtl = TextEditingController(text: '12');
   final _paidCtl = TextEditingController();
   final _projCtl = TextEditingController();
@@ -283,6 +284,25 @@ class _AssessDialogState extends State<_AssessDialog> {
     _model = _meta.models.first;
     _quarter = _meta.currentQuarter;
     _payment = _meta.paymentMethods.first;
+    _prefill();
+  }
+
+  /// Kalau kuartal+model ini sudah pernah dinilai, buka form dengan nilai lama
+  /// supaya pengguna mengoreksi, bukan mengisi dari nol.
+  void _prefill() {
+    Assessment? prev;
+    for (final a in widget.existing) {
+      if (a.model == _model && a.quarter == _quarter) prev = a;
+    }
+    if (prev == null) return;
+    _payment = prev.paymentMethod;
+    _tenor = prev.paymentTenor;
+    _tenorCtl.text = '${prev.paymentTenor}';
+    _paidCtl.text = prev.paidAmount == 0 ? '' : prev.paidAmount.toStringAsFixed(0);
+    _projCtl.text = prev.projectionValue == 0 ? '' : prev.projectionValue.toStringAsFixed(0);
+    _notesCtl.text = prev.projectionNotes ?? '';
+    _holdingLevel = levelFor('holding', prev.scores['holding'] ?? 60).label;
+    _projectionLevel = levelFor('projection', prev.scores['projection'] ?? 60).label;
   }
 
   @override
@@ -316,6 +336,16 @@ class _AssessDialogState extends State<_AssessDialog> {
   double _num(TextEditingController c) =>
       double.tryParse(c.text.replaceAll('.', '').replaceAll(',', '.')) ?? 0;
 
+  Map<String, double> get _scores => {
+        'holding': _levelScore('holding', _holdingLevel),
+        'payment': paymentScore(_payment),
+        'tenor': tenorScore(_tenor),
+        'projection': _levelScore('projection', _projectionLevel),
+      };
+
+  double _levelScore(String key, String label) =>
+      criteria.firstWhere((c) => c.key == key).levels.firstWhere((l) => l.label == label).score;
+
   Future<void> _save() async {
     setState(() {
       _saving = true;
@@ -346,13 +376,14 @@ class _AssessDialogState extends State<_AssessDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = ShadTheme.of(context);
     final preview = _meta.score(_model, _scores);
     return ShadDialog(
       title: const Text('Nilai owner'),
-      description: const Text('Skor 0–100 per kriteria. Total dihitung otomatis sesuai model.'),
-      constraints: const BoxConstraints(maxWidth: 520),
+      description: const Text('Pilih kondisi yang paling mendekati. Total dihitung otomatis.'),
+      constraints: const BoxConstraints(maxWidth: 560),
       child: SizedBox(
-        width: 480,
+        width: 520,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -362,24 +393,54 @@ class _AssessDialogState extends State<_AssessDialog> {
                 Notice(message: _error!, icon: Icons.error_outline),
                 const SizedBox(height: 12),
               ],
-              const _Label('Model'),
-              ShadSelect<String>(
-                initialValue: _model,
-                selectedOptionBuilder: (_, v) => Text(modelLabels[v] ?? v),
-                options: [
-                  for (final m in _meta.models)
-                    ShadOption(value: m, child: Text(modelLabels[m] ?? m)),
+
+              // ---- 1. konteks ----
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _Label('Model'),
+                        ShadSelect<String>(
+                          initialValue: _model,
+                          selectedOptionBuilder: (_, v) => Text(modelLabels[v] ?? v),
+                          options: [
+                            for (final m in _meta.models)
+                              ShadOption(value: m, child: Text(modelLabels[m] ?? m)),
+                          ],
+                          onChanged: (v) => setState(() {
+                            _model = v ?? _model;
+                            _prefill();
+                          }),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _Label('Kuartal'),
+                        ShadSelect<String>(
+                          initialValue: _quarter,
+                          selectedOptionBuilder: (_, v) => Text(v),
+                          options: [for (final q in _quarters) ShadOption(value: q, child: Text(q))],
+                          onChanged: (v) => setState(() {
+                            _quarter = v ?? _quarter;
+                            _prefill();
+                          }),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
-                onChanged: (v) => setState(() => _model = v ?? _model),
               ),
-              const _Label('Kuartal'),
-              ShadSelect<String>(
-                initialValue: _quarter,
-                selectedOptionBuilder: (_, v) => Text(v),
-                options: [for (final q in _quarters) ShadOption(value: q, child: Text(q))],
-                onChanged: (v) => setState(() => _quarter = v ?? _quarter),
-              ),
-              const _Label('Cara pembayaran'),
+
+              // ---- 2. pembayaran ----
+              const _Section('Pembayaran'),
+              const _Label('Cara bayar'),
               ShadSelect<String>(
                 initialValue: _payment,
                 selectedOptionBuilder: (_, v) => Text(paymentLabels[v] ?? v),
@@ -389,6 +450,10 @@ class _AssessDialogState extends State<_AssessDialog> {
                 ],
                 onChanged: (v) => setState(() => _payment = v ?? _payment),
               ),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(paymentHint(_payment), style: theme.textTheme.small),
+              ),
               const _Label('Masa pembayaran (bulan)'),
               ShadInput(
                 controller: _tenorCtl,
@@ -396,34 +461,53 @@ class _AssessDialogState extends State<_AssessDialog> {
                 placeholder: const Text('12'),
                 onChanged: (v) => setState(() => _tenor = int.tryParse(v) ?? 0),
               ),
-              const _Label('Sudah dibayar (Rp)'),
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  'Skor tenor ${tenorScore(_tenor).toStringAsFixed(0)} — makin pendek makin baik.',
+                  style: theme.textTheme.small,
+                ),
+              ),
+              const _Label('Sudah dibayar (Rp, opsional)'),
               ShadInput(
                 controller: _paidCtl,
                 keyboardType: TextInputType.number,
                 placeholder: const Text('0'),
               ),
-              const _Label('Proyeksi nilai ke depan (Rp)'),
+              const _Label('Proyeksi nilai ke depan (Rp, opsional)'),
               ShadInput(
                 controller: _projCtl,
                 keyboardType: TextInputType.number,
                 placeholder: const Text('0'),
               ),
-              const _Label('Catatan proyeksi'),
-              ShadInput(controller: _notesCtl, placeholder: const Text('opsional')),
-              const SizedBox(height: 16),
-              for (final k in const ['holding', 'payment', 'tenor', 'projection'])
-                _ScoreSlider(
-                  label: scoreLabels[k]!,
-                  value: _scores[k]!,
-                  onChanged: (v) => setState(() => _scores[k] = v),
+
+              // ---- 3. penilaian ----
+              for (final c in criteria) ...[
+                _Section(c.label),
+                Text(c.question, style: theme.textTheme.small),
+                const SizedBox(height: 8),
+                _ChoiceGroup(
+                  levels: c.levels,
+                  selected: c.key == 'holding' ? _holdingLevel : _projectionLevel,
+                  onChanged: (label) => setState(() {
+                    if (c.key == 'holding') {
+                      _holdingLevel = label;
+                    } else {
+                      _projectionLevel = label;
+                    }
+                  }),
                 ),
-              const SizedBox(height: 8),
+              ],
+
+              const _Label('Catatan (opsional)'),
+              ShadInput(controller: _notesCtl, placeholder: const Text('alasan singkat, mis. lokasi strategis')),
+
+              const SizedBox(height: 16),
               Row(
                 children: [
-                  Text('Total', style: ShadTheme.of(context).textTheme.large),
+                  Text('Total', style: theme.textTheme.large),
                   const Spacer(),
-                  Text(preview.total.toStringAsFixed(2),
-                      style: ShadTheme.of(context).textTheme.h2),
+                  Text(preview.total.toStringAsFixed(2), style: theme.textTheme.h2),
                   const SizedBox(width: 8),
                   GradeBadge(grade: preview.grade),
                 ],
@@ -431,7 +515,7 @@ class _AssessDialogState extends State<_AssessDialog> {
               const SizedBox(height: 4),
               Text(
                 'Bobot: ${_meta.weights[_model]!.entries.map((e) => '${scoreLabels[e.key]} ${(e.value * 100).round()}%').join(' · ')}',
-                style: ShadTheme.of(context).textTheme.small,
+                style: theme.textTheme.small,
               ),
             ],
           ),
@@ -451,6 +535,75 @@ class _AssessDialogState extends State<_AssessDialog> {
   }
 }
 
+/// Pilihan berlabel untuk satu kriteria. Satu baris per level, skor di kanan.
+class _ChoiceGroup extends StatelessWidget {
+  const _ChoiceGroup({required this.levels, required this.selected, required this.onChanged});
+
+  final List<Level> levels;
+  final String selected;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = ShadTheme.of(context);
+    return Column(
+      children: [
+        for (final l in levels)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: InkWell(
+              onTap: () => onChanged(l.label),
+              borderRadius: BorderRadius.circular(8),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: l.label == selected ? theme.colorScheme.primary : theme.colorScheme.border,
+                    width: l.label == selected ? 1.5 : 1,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      l.label == selected ? Icons.radio_button_checked : Icons.radio_button_off,
+                      size: 16,
+                      color: l.label == selected
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.mutedForeground,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(l.label, style: theme.textTheme.p),
+                          Text(l.hint, style: theme.textTheme.small),
+                        ],
+                      ),
+                    ),
+                    Text(l.score.toStringAsFixed(0), style: theme.textTheme.small),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class _Section extends StatelessWidget {
+  const _Section(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(top: 18, bottom: 2),
+        child: Text(text, style: ShadTheme.of(context).textTheme.large),
+      );
+}
+
 class _Label extends StatelessWidget {
   const _Label(this.text);
   final String text;
@@ -460,39 +613,4 @@ class _Label extends StatelessWidget {
         padding: const EdgeInsets.only(top: 12, bottom: 6),
         child: Text(text, style: ShadTheme.of(context).textTheme.small),
       );
-}
-
-class _ScoreSlider extends StatelessWidget {
-  const _ScoreSlider({required this.label, required this.value, required this.onChanged});
-
-  final String label;
-  final double value;
-  final ValueChanged<double> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = ShadTheme.of(context);
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(label, style: theme.textTheme.small),
-              const Spacer(),
-              Text(value.toStringAsFixed(0), style: theme.textTheme.small),
-            ],
-          ),
-          ShadSlider(
-            initialValue: value,
-            min: 0,
-            max: 100,
-            divisions: 20,
-            onChanged: onChanged,
-          ),
-        ],
-      ),
-    );
-  }
 }
