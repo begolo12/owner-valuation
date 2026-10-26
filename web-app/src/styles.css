@@ -194,6 +194,15 @@ button.item:hover { transform: translateX(2px); }
 .item .name, .item .meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .item .chev { color: var(--faint); font-size: 17px; line-height: 1; flex: none; }
 
+.back {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-bottom: 10px; padding: 5px 12px 5px 9px;
+  font-size: 12.5px; color: var(--muted);
+  border-radius: 999px; border: 1px solid var(--border);
+  background: var(--bg-soft);
+}
+.back:hover { color: var(--text); border-color: var(--border-strong); background: var(--panel-2); }
+
 .avatar {
   width: 36px; height: 36px; border-radius: 11px;
   display: grid; place-items: center;
