@@ -1,0 +1,8 @@
+app/
+node_modules/
+.agents/
+.github/
+db/
+scripts/
+*.log
+.env*

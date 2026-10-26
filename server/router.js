@@ -1,6 +1,6 @@
-import { HttpError, json, num, oneOf, readBody, requireToken, str } from '../server/http.js';
-import { q } from '../server/db.js';
-import { MODELS, QUARTER_RE, WEIGHTS, computeScore, currentQuarter } from '../server/score.js';
+import { HttpError, json, num, oneOf, readBody, requireToken, str } from './http.js';
+import { q } from './db.js';
+import { MODELS, QUARTER_RE, WEIGHTS, computeScore, currentQuarter } from './score.js';
 
 const PAYMENT_METHODS = ['cash', 'kpr', 'installment', 'other'];
 
@@ -345,7 +345,7 @@ const routes = [
   }],
 ];
 
-export default async function handler(req, res) {
+export default async function dispatch(req, res, path) {
   res.setHeader('access-control-allow-origin', '*');
   res.setHeader('access-control-allow-headers', 'content-type,x-app-token');
   res.setHeader('access-control-allow-methods', 'GET,POST,PATCH,PUT,DELETE,OPTIONS');
@@ -355,10 +355,7 @@ export default async function handler(req, res) {
   }
 
   const url = new URL(req.url ?? '/', 'http://local');
-  const raw = url.pathname.replace(/^\/api\/?/, '');
-  const segments = raw.split('/').filter(Boolean);
-  const path = segments.join('/');
-  req.query = Object.fromEntries(url.searchParams);
+  req.query = { ...req.query, ...Object.fromEntries(url.searchParams) };
 
   try {
     if (path !== 'health') requireToken(req);
