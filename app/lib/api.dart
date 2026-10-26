@@ -247,20 +247,35 @@ class Api {
   String token = kDefaultToken;
   Meta? meta;
 
+  /// Baca setelan tersimpan. Kalau secure storage tidak tersedia
+  /// (mis. localStorage diblokir di browser), pakai nilai bawaan saja.
   Future<void> load() async {
-    baseUrl = await _storage.read(key: _kBase) ?? kDefaultBaseUrl;
-    token = await _storage.read(key: _kToken) ?? kDefaultToken;
+    try {
+      baseUrl = await _storage.read(key: _kBase) ?? kDefaultBaseUrl;
+      token = await _storage.read(key: _kToken) ?? kDefaultToken;
+    } catch (_) {
+      baseUrl = kDefaultBaseUrl;
+      token = kDefaultToken;
+    }
   }
 
   Future<void> save({String? baseUrl, String? token}) async {
     if (baseUrl != null && baseUrl.isNotEmpty) {
       this.baseUrl = baseUrl.replaceAll(RegExp(r'/+$'), '');
-      await _storage.write(key: _kBase, value: this.baseUrl);
+      await _write(_kBase, this.baseUrl);
     }
     if (token != null && token.isNotEmpty) {
       this.token = token;
-      await _storage.write(key: _kToken, value: token);
+      await _write(_kToken, token);
     }
+  }
+
+  /// Penyimpanan bisa gagal (storage penuh / diblokir). Nilai tetap dipakai
+  /// untuk sesi berjalan, jadi kegagalan simpan tidak boleh menggagalkan aksi.
+  static Future<void> _write(String key, String value) async {
+    try {
+      await _storage.write(key: key, value: value);
+    } catch (_) {}
   }
 
   Uri _uri(String path, [Map<String, String>? query]) =>

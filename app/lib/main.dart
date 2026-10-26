@@ -15,8 +15,12 @@ final homeTab = ValueNotifier<int>(0);
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Api.i.load();
-  final saved = await const FlutterSecureStorage().read(key: 'theme_mode');
-  themeMode.value = saved == 'light' ? ThemeMode.light : ThemeMode.dark;
+  try {
+    final saved = await const FlutterSecureStorage().read(key: 'theme_mode');
+    themeMode.value = saved == 'light' ? ThemeMode.light : ThemeMode.dark;
+  } catch (_) {
+    themeMode.value = ThemeMode.dark;
+  }
   runApp(const App());
 }
 
