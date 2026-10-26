@@ -5,8 +5,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Penilaian Owner — Supplier Konstruksi</title>
     <meta name="description" content="Penilaian owner dan proyek konstruksi per kuartal." />
-    <meta name="theme-color" content="#0c0a09" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230c0a09'/><path d='M26 70V34l24-12 24 12v36' stroke='%23f59e0b' stroke-width='7' fill='none' stroke-linejoin='round'/></svg>" />
+    <meta name="theme-color" content="#0b0a09" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='22' fill='%230b0a09'/><path d='M26 70V34l24-12 24 12v36' stroke='%23f59e0b' stroke-width='7' fill='none' stroke-linejoin='round'/></svg>" />
+    <script>
+      // Build Flutter web lama meninggalkan service worker yang menyajikan
+      // index.html usang (menunjuk main.dart.js yang sudah dihapus) → layar putih.
+      // Cabut registrasi + cache lama sekali, lalu muat ulang bersih.
+      (function () {
+        if (!('serviceWorker' in navigator) && !window.caches) return;
+        var reloaded = sessionStorage.getItem('ov.sw-clean');
+        Promise.all([
+          navigator.serviceWorker
+            ? navigator.serviceWorker.getRegistrations().then(function (rs) {
+                return Promise.all(rs.map(function (r) { return r.unregister(); }));
+              })
+            : Promise.resolve(),
+          window.caches
+            ? caches.keys().then(function (keys) {
+                return Promise.all(keys.map(function (k) { return caches.delete(k); }));
+              })
+            : Promise.resolve(),
+        ]).then(function (out) {
+          var removed = (out[0] || []).some(Boolean) || (out[1] || []).some(Boolean);
+          if (removed && !reloaded) {
+            sessionStorage.setItem('ov.sw-clean', '1');
+            location.reload();
+          }
+        });
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

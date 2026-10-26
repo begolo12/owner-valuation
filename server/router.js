@@ -204,8 +204,22 @@ const routes = [
       'select * from assessments where owner_id = $1 order by quarter desc, model',
       [id],
     );
+    // Satu nilai terbaru per model. Klien web dan APK sama-sama memakainya untuk
+    // kartu ringkasan, jadi bentuknya dijaga tetap.
+    const latest = [];
+    for (const a of assessments) {
+      if (!latest.some((l) => l.model === a.model)) {
+        latest.push({
+          model: a.model,
+          quarter: a.quarter,
+          total: Number(a.total_score),
+          grade: a.grade,
+        });
+      }
+    }
     return {
       owner: { ...ownerOut(owner), holdingName: owner.holding_name },
+      latest,
       assessments: assessments.map(assessmentOut),
     };
   }],

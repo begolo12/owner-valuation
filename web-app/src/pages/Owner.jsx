@@ -8,6 +8,7 @@ import {
   modelLabels,
   paymentHints,
   paymentLabels,
+  rupiah,
   scoreLabels,
   tenorBands,
 } from '../labels.js';
@@ -55,18 +56,26 @@ export default function Owner({ id, meta, go }) {
   if (!data) {
     return (
       <div className="page">
-        <div className="empty"><Spinner /></div>
+        <div className="empty">
+          <Spinner />
+        </div>
       </div>
     );
   }
 
   const { owner, assessments } = data;
 
+  // Server mengirim riwayat urut kuartal terbaru; ambil satu terbaru per model.
+  const latest = [];
+  for (const a of assessments) {
+    if (!latest.some((l) => l.model === a.model)) latest.push(a);
+  }
+
   return (
     <div className="page">
       <div className="page-head">
-        <div>
-          <button className="ghost" onClick={() => go(`/holding/${owner.holdingId}`)} style={{ marginBottom: 8 }}>
+        <div style={{ minWidth: 0 }}>
+          <button className="back" onClick={() => go(`/holding/${owner.holdingId}`)}>
             ← {owner.holdingName || 'Holding'}
           </button>
           <h1>{owner.name}</h1>
@@ -80,15 +89,17 @@ export default function Owner({ id, meta, go }) {
 
       {error && <Notice error>{error}</Notice>}
 
-      {owner.latest.length > 0 && (
+      {latest.length > 0 && (
         <div className="grid-2" style={{ marginBottom: 12 }}>
-          {owner.latest.map((l) => (
-            <div className="card" key={l.model}>
-              <div className="sub" style={{ margin: 0 }}>{modelLabels[l.model] || l.model}</div>
-              <div className="row" style={{ marginTop: 4 }}>
-                <strong style={{ fontSize: 22 }}>{l.total.toFixed(1)}</strong>
+          {latest.map((l) => (
+            <div className="stat" key={l.model}>
+              <div className="k">{modelLabels[l.model] || l.model}</div>
+              <div className="row" style={{ marginTop: 2 }}>
+                <span className="v">{l.total.toFixed(1)}</span>
                 <Grade grade={l.grade} compact />
-                <span className="meta" style={{ marginLeft: 'auto' }}>{l.quarter}</span>
+                <span className="h" style={{ marginLeft: 'auto' }}>
+                  {l.quarter}
+                </span>
               </div>
             </div>
           ))}
@@ -96,12 +107,16 @@ export default function Owner({ id, meta, go }) {
       )}
 
       <div className="section">Riwayat penilaian</div>
-      <p className="sub" style={{ marginTop: 0 }}>
+      <p className="sub" style={{ marginTop: 0, color: 'var(--muted)', fontSize: 12.5 }}>
         Satu nilai per model per kuartal. Menyimpan kuartal yang sama akan menimpa nilai lama.
       </p>
 
       {assessments.length === 0 ? (
-        <div className="card empty">Belum ada penilaian. Tekan “Nilai” untuk mulai.</div>
+        <div className="card empty">
+          Belum ada penilaian.
+          <br />
+          Tekan “Nilai” untuk mengisi kuartal berjalan.
+        </div>
       ) : (
         <div className="stack">
           {assessments.map((a) => (
@@ -169,6 +184,7 @@ function AssessDialog({ ownerId, meta, existing, onClose, onSaved }) {
     });
   }, [meta.currentQuarter]);
 
+  // Pratinjau saja — server menghitung ulang skor bayar & tenor dari pilihan.
   const scores = {
     holding: levelScore('holding', holdingLevel),
     payment: meta.paymentScores?.[payment] ?? 60,
@@ -177,13 +193,14 @@ function AssessDialog({ ownerId, meta, existing, onClose, onSaved }) {
   };
 
   const weights = meta.weights[model];
-  const total = Math.round(
-    (scores.holding * weights.holding +
-      scores.payment * weights.payment +
-      scores.tenor * weights.tenor +
-      scores.projection * weights.projection) *
-      100,
-  ) / 100;
+  const total =
+    Math.round(
+      (scores.holding * weights.holding +
+        scores.payment * weights.payment +
+        scores.tenor * weights.tenor +
+        scores.projection * weights.projection) *
+        100,
+    ) / 100;
 
   const save = async () => {
     setBusy(true);
@@ -227,7 +244,9 @@ function AssessDialog({ ownerId, meta, existing, onClose, onSaved }) {
           <label htmlFor="m">Model</label>
           <select id="m" value={model} onChange={(e) => setModel(e.target.value)}>
             {meta.models.map((m) => (
-              <option key={m} value={m}>{modelLabels[m] || m}</option>
+              <option key={m} value={m}>
+                {modelLabels[m] || m}
+              </option>
             ))}
           </select>
         </div>
@@ -235,7 +254,9 @@ function AssessDialog({ ownerId, meta, existing, onClose, onSaved }) {
           <label htmlFor="q">Kuartal</label>
           <select id="q" value={quarter} onChange={(e) => setQuarter(e.target.value)}>
             {quarters.map((q) => (
-              <option key={q} value={q}>{q}</option>
+              <option key={q} value={q}>
+                {q}
+              </option>
             ))}
           </select>
         </div>
@@ -246,7 +267,9 @@ function AssessDialog({ ownerId, meta, existing, onClose, onSaved }) {
         <label htmlFor="p">Skema bayar</label>
         <select id="p" value={payment} onChange={(e) => setPayment(e.target.value)}>
           {meta.paymentMethods.map((p) => (
-            <option key={p} value={p}>{paymentLabels[p] || p}</option>
+            <option key={p} value={p}>
+              {paymentLabels[p] || p}
+            </option>
           ))}
         </select>
         <div className="help">
@@ -265,7 +288,8 @@ function AssessDialog({ ownerId, meta, existing, onClose, onSaved }) {
           onChange={(e) => setTenor(Number(e.target.value) || 0)}
         />
         <div className="help">
-          Skor {scores.tenor} — {tenorBands.find((b) => tenor <= b.max)?.label}. Makin pendek makin baik.
+          Skor {scores.tenor} — {tenorBands.find((b) => tenor <= b.max)?.label}. Makin pendek makin
+          baik.
         </div>
       </div>
 
@@ -295,7 +319,9 @@ function AssessDialog({ ownerId, meta, existing, onClose, onSaved }) {
       {criteria.map((c) => (
         <div key={c.key}>
           <div className="section">{c.label}</div>
-          <div className="help" style={{ marginBottom: 2 }}>{c.question}</div>
+          <div className="help" style={{ marginBottom: 2, color: 'var(--muted)', fontSize: 12.5 }}>
+            {c.question}
+          </div>
           {c.levels.map((l) => {
             const on = (c.key === 'holding' ? holdingLevel : projectionLevel) === l.label;
             return (
@@ -306,11 +332,12 @@ function AssessDialog({ ownerId, meta, existing, onClose, onSaved }) {
                   c.key === 'holding' ? setHoldingLevel(l.label) : setProjectionLevel(l.label)
                 }
                 type="button"
+                aria-pressed={on}
               >
                 <span className="dot" />
                 <span>
                   <span className="t">{l.label}</span>
-                  <span className="d" style={{ display: 'block' }}>{l.hint}</span>
+                  <span className="d">{l.hint}</span>
                 </span>
                 <span className="s">{l.score}</span>
               </button>
@@ -346,5 +373,6 @@ function AssessDialog({ ownerId, meta, existing, onClose, onSaved }) {
 
 function nearestLevel(key, score) {
   const levels = criteria.find((c) => c.key === key).levels;
-  return levels.reduce((a, b) => (Math.abs(a.score - score) <= Math.abs(b.score - score) ? a : b)).label;
+  return levels.reduce((a, b) => (Math.abs(a.score - score) <= Math.abs(b.score - score) ? a : b))
+    .label;
 }

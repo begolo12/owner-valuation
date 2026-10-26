@@ -1,4 +1,4 @@
-import { modelLabels, paymentLabels } from './labels.js';
+import { modelLabels, paymentLabels, rupiah } from './labels.js';
 
 export function Grade({ grade, compact }) {
   return <span className={`badge ${grade.toLowerCase()}`}>{compact ? grade : `Grade ${grade}`}</span>;
@@ -11,7 +11,7 @@ export function Notice({ children, error }) {
 export function Modal({ title, subtitle, onClose, children, actions }) {
   return (
     <div className="backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true">
+      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
         <h2>{title}</h2>
         {subtitle && <p className="sub">{subtitle}</p>}
         {children}
@@ -46,6 +46,7 @@ export function OwnerRow({ owner, onClick }) {
         </div>
       </div>
       {existing && <Grade grade={existing.grade} compact />}
+      <span className="chev">›</span>
     </button>
   );
 }
@@ -59,7 +60,7 @@ export function AssessmentRow({ a, onDelete }) {
         </div>
         <div className="meta">
           {paymentLabels[a.paymentMethod] || a.paymentMethod} · TOP {a.paymentTenor} hari
-          {a.projectionValue ? ` · proyeksi ${a.projectionValue.toLocaleString('id-ID')}` : ''}
+          {a.projectionValue ? ` · proyeksi ${rupiah(a.projectionValue)}` : ''}
         </div>
         {a.projectionNotes && (
           <div className="meta" style={{ whiteSpace: 'normal' }}>
@@ -68,9 +69,9 @@ export function AssessmentRow({ a, onDelete }) {
         )}
       </div>
       <div className="row" style={{ flex: 'none' }}>
-        <strong>{a.total.toFixed(1)}</strong>
+        <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{a.total.toFixed(1)}</strong>
         <Grade grade={a.grade} compact />
-        <button className="ghost danger" onClick={onDelete} title="Hapus penilaian">
+        <button className="ghost danger" onClick={onDelete} title="Hapus penilaian" aria-label="Hapus penilaian">
           ✕
         </button>
       </div>

@@ -4,7 +4,7 @@ import { Grade, Modal, Notice, Spinner } from '../components.jsx';
 import { gradeOf, modelLabels } from '../labels.js';
 import { useEscape } from '../useEscape.js';
 
-export default function Dashboard({ meta, go }) {
+export default function Dashboard({ go }) {
   const [data, setData] = useState(null);
   const [holdings, setHoldings] = useState([]);
   const [error, setError] = useState(null);
@@ -26,17 +26,26 @@ export default function Dashboard({ meta, go }) {
     load();
   }, [load]);
 
-  if (error) return <div className="page"><Notice error>{error}</Notice></div>;
-
-  if (!data) {
+  if (error) {
     return (
       <div className="page">
-        <div className="empty"><Spinner /></div>
+        <Notice error>{error}</Notice>
       </div>
     );
   }
 
-  const done = data.totals.owners === 0 ? 0 : Math.round((data.totals.assessed * 100) / data.totals.owners);
+  if (!data) {
+    return (
+      <div className="page">
+        <div className="empty">
+          <Spinner />
+        </div>
+      </div>
+    );
+  }
+
+  const done =
+    data.totals.owners === 0 ? 0 : Math.round((data.totals.assessed * 100) / data.totals.owners);
 
   return (
     <div className="page">
@@ -57,16 +66,21 @@ export default function Dashboard({ meta, go }) {
         <div className="stat">
           <div className="k">Holding</div>
           <div className="v">{data.totals.holdings}</div>
+          <div className="h">grup usaha</div>
         </div>
         <div className="stat">
           <div className="k">Owner / proyek</div>
           <div className="v">{data.totals.owners}</div>
+          <div className="h">pihak yang dinilai</div>
         </div>
         <div className="stat">
           <div className="k">Sudah dinilai</div>
           <div className="v">{done}%</div>
+          <div className="bar">
+            <span style={{ width: `${done}%` }} />
+          </div>
           <div className="h">
-            {data.totals.assessed} dari {data.totals.owners}
+            {data.totals.assessed} dari {data.totals.owners} kuartal ini
             {data.totals.missing > 0 ? ` · ${data.totals.missing} belum` : ''}
           </div>
         </div>
@@ -77,7 +91,7 @@ export default function Dashboard({ meta, go }) {
           <h2>Rata-rata per model</h2>
           <p className="sub">Kuartal {data.quarter}</p>
           {data.byModel.map((m) => (
-            <div className="row" key={m.model} style={{ padding: '6px 0' }}>
+            <div className="row" key={m.model} style={{ padding: '7px 0' }}>
               <span style={{ flex: 1 }}>{modelLabels[m.model] || m.model}</span>
               <span className="meta">
                 {m.avg.toFixed(1)} · {m.count} owner
@@ -91,10 +105,12 @@ export default function Dashboard({ meta, go }) {
       {data.top.length > 0 && (
         <div className="card" style={{ marginTop: 12 }}>
           <h2>Peringkat teratas</h2>
-          <p className="sub">Berdasarkan skor kuartal {data.quarter}</p>
+          <p className="sub">Skor kuartal {data.quarter}</p>
           {data.top.slice(0, 5).map((t, i) => (
-            <div className="row" key={`${t.ownerId}-${t.model}`} style={{ padding: '6px 0' }}>
-              <span className="meta" style={{ width: 18 }}>{i + 1}</span>
+            <div className="row" key={`${t.ownerId}-${t.model}`} style={{ padding: '7px 0' }}>
+              <span className="meta" style={{ width: 16, fontVariantNumeric: 'tabular-nums' }}>
+                {i + 1}
+              </span>
               <span style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {t.name}
@@ -104,7 +120,7 @@ export default function Dashboard({ meta, go }) {
                   {t.project ? ` · ${t.project}` : ''} · {modelLabels[t.model] || t.model}
                 </div>
               </span>
-              <strong>{t.total.toFixed(1)}</strong>
+              <strong style={{ fontVariantNumeric: 'tabular-nums' }}>{t.total.toFixed(1)}</strong>
               <Grade grade={t.grade} compact />
             </div>
           ))}
@@ -114,7 +130,9 @@ export default function Dashboard({ meta, go }) {
       <div className="section">Holding</div>
       {holdings.length === 0 ? (
         <div className="card empty">
-          Belum ada holding. Tekan “+ Holding” untuk mulai.
+          Belum ada holding.
+          <br />
+          Tekan “+ Holding” untuk menambah grup usaha pertama.
         </div>
       ) : (
         <div className="stack">
@@ -122,7 +140,17 @@ export default function Dashboard({ meta, go }) {
             <div className="item" key={h.id}>
               <button
                 className="ghost"
-                style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, border: 0, background: 'transparent', padding: 0, textAlign: 'left' }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  flex: 1,
+                  minWidth: 0,
+                  border: 0,
+                  background: 'transparent',
+                  padding: 0,
+                  textAlign: 'left',
+                }}
                 onClick={() => go(`/holding/${h.id}`)}
               >
                 <div className="avatar">{h.name.trim().charAt(0).toUpperCase()}</div>
@@ -130,8 +158,14 @@ export default function Dashboard({ meta, go }) {
                   <div className="name">{h.name}</div>
                   <div className="meta">{h.ownerCount} owner/proyek</div>
                 </div>
+                <span className="chev">›</span>
               </button>
-              <button className="ghost danger" onClick={() => setConfirmDelete(h)} title="Hapus holding">
+              <button
+                className="ghost danger"
+                onClick={() => setConfirmDelete(h)}
+                title="Hapus holding"
+                aria-label={`Hapus ${h.name}`}
+              >
                 ✕
               </button>
             </div>

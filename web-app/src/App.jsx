@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { api, forgetToken, saveConnection, token } from './api.js';
+import { api, forgetToken, saveToken, token } from './api.js';
 import { Notice, Spinner } from './components.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Holding from './pages/Holding.jsx';
@@ -18,7 +18,8 @@ function parseRoute() {
 
 export default function App() {
   const [route, setRoute] = useState(parseRoute);
-  const [unlocked, setUnlocked] = useState(!!token());
+  // Token tersimpan = langsung masuk, tanpa isi ulang di perangkat yang sama.
+  const [unlocked, setUnlocked] = useState(() => Boolean(token()));
   const [meta, setMeta] = useState(null);
   const [error, setError] = useState(null);
   const [booting, setBooting] = useState(true);
@@ -46,8 +47,11 @@ export default function App() {
       })
       .catch((e) => {
         if (!alive) return;
-        if (e.status === 401) setUnlocked(false);
-        else setError(e.message);
+        // Token bisa sudah dirotasi di server: buang, jangan menyandera sesi.
+        if (e.status === 401) {
+          forgetToken();
+          setUnlocked(false);
+        } else setError(e.message);
       })
       .finally(() => alive && setBooting(false));
     return () => {
@@ -73,9 +77,10 @@ export default function App() {
   if (error) {
     return (
       <div className="center-screen">
-        <div className="auth-card">
-          <Notice error>{error}</Notice>
-          <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+        <div className="auth-card card">
+          <h2>Tidak bisa terhubung</h2>
+          <p className="sub">{error}</p>
+          <div className="modal-actions">
             <button onClick={() => setUnlocked(false)}>Ganti token</button>
             <button className="primary" onClick={() => window.location.reload()}>
               Coba lagi
@@ -100,12 +105,10 @@ export default function App() {
             />
           </svg>
           Penilaian Owner
+          <small>konstruksi</small>
         </div>
         <nav className="nav">
-          <button
-            className={route.kind === 'dashboard' ? 'active' : ''}
-            onClick={() => go('/')}
-          >
+          <button className={route.kind === 'dashboard' ? 'active' : ''} onClick={() => go('/')}>
             Dashboard
           </button>
           <button
@@ -121,10 +124,14 @@ export default function App() {
       {route.kind === 'holding' && <Holding id={route.id} go={go} />}
       {route.kind === 'owner' && <Owner id={route.id} meta={meta} go={go} />}
       {route.kind === 'settings' && (
-        <Settings meta={meta} onSaved={() => window.location.reload()} onForget={() => {
-          forgetToken();
-          setUnlocked(false);
-        }} />
+        <Settings
+          meta={meta}
+          onSaved={() => window.location.reload()}
+          onForget={() => {
+            forgetToken();
+            setUnlocked(false);
+          }}
+        />
       )}
     </div>
   );
@@ -137,14 +144,18 @@ function Unlock({ onDone }) {
 
   const submit = async (e) => {
     e.preventDefault();
-    if (!tok.trim()) return setErr('Token belum diisi.');
+    const value = tok.trim();
+    if (!value) return setErr('Token belum diisi.');
     setBusy(true);
     setErr(null);
-    saveConnection({ tok: tok.trim() });
+    // Simpan dulu supaya header ikut terkirim; hapus lagi kalau server menolak
+    // agar token salah tidak ikut tersimpan dan mengunci perangkat.
+    saveToken(value);
     try {
       await api.meta();
       onDone();
     } catch (ex) {
+      forgetToken();
       setErr(ex.status === 401 ? 'Token salah.' : ex.message);
       setBusy(false);
     }
@@ -154,7 +165,10 @@ function Unlock({ onDone }) {
     <div className="center-screen">
       <form className="auth-card card" onSubmit={submit}>
         <h2>Penilaian Owner</h2>
-        <p className="sub">Masukkan token aplikasi untuk membuka data.</p>
+        <p className="sub">
+          Masukkan token aplikasi sekali. Perangkat ini akan mengingatnya, jadi lain kali langsung
+          masuk.
+        </p>
         {err && <Notice error>{err}</Notice>}
         <div className="field">
           <label htmlFor="tok">Token aplikasi</label>
@@ -164,6 +178,7 @@ function Unlock({ onDone }) {
             value={tok}
             onChange={(e) => setTok(e.target.value)}
             placeholder="••••••••"
+            autoComplete="current-password"
             autoFocus
           />
         </div>

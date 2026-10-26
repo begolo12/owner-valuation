@@ -35,7 +35,9 @@ export default function Holding({ id, go }) {
   if (!data) {
     return (
       <div className="page">
-        <div className="empty"><Spinner /></div>
+        <div className="empty">
+          <Spinner />
+        </div>
       </div>
     );
   }
@@ -43,8 +45,8 @@ export default function Holding({ id, go }) {
   return (
     <div className="page">
       <div className="page-head">
-        <div>
-          <button className="ghost" onClick={() => go('/')} style={{ marginBottom: 8 }}>
+        <div style={{ minWidth: 0 }}>
+          <button className="back" onClick={() => go('/')}>
             ← Dashboard
           </button>
           <h1>{data.holding.name}</h1>
@@ -60,7 +62,9 @@ export default function Holding({ id, go }) {
 
       {data.owners.length === 0 ? (
         <div className="card empty">
-          Belum ada owner. Tambahkan proyek atau owner pertama.
+          Belum ada owner di holding ini.
+          <br />
+          Tambahkan pihak yang menerima material beserta nama proyeknya.
         </div>
       ) : (
         <div className="stack">

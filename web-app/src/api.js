@@ -1,17 +1,51 @@
-// Klien API. Token disimpan di localStorage, tidak pernah di-bundle.
-const BASE_KEY = 'ov.baseUrl';
+// Klien API. Token disimpan di perangkat, tidak pernah di-bundle.
+// localStorage + cookie: sebagian browser (Safari/iOS, mode privat, in-app)
+// membuang localStorage walau perangkatnya sama, cookie jadi cadangan.
 const TOKEN_KEY = 'ov.token';
+const TOKEN_COOKIE = 'ov_token';
+const COOKIE_AGE = 34560000; // 400 hari, batas maksimum umur cookie di Chrome
 
-export const baseUrl = () => localStorage.getItem(BASE_KEY) || '';
-export const token = () => localStorage.getItem(TOKEN_KEY) || '';
+// Akses localStorage bisa melempar (mode privat / kebijakan browser).
+const store = {
+  get(k) {
+    try {
+      return localStorage.getItem(k) || '';
+    } catch {
+      return '';
+    }
+  },
+  set(k, v) {
+    try {
+      localStorage.setItem(k, v);
+    } catch {
+      /* cookie di bawah tetap menyimpan */
+    }
+  },
+  del(k) {
+    try {
+      localStorage.removeItem(k);
+    } catch {
+      /* tidak ada yang bisa dibersihkan */
+    }
+  },
+};
 
-export function saveConnection({ base, tok }) {
-  if (base) localStorage.setItem(BASE_KEY, base.replace(/\/+$/, ''));
-  if (tok) localStorage.setItem(TOKEN_KEY, tok);
+function readCookie(name) {
+  const hit = document.cookie.split('; ').find((c) => c.startsWith(`${name}=`));
+  return hit ? decodeURIComponent(hit.slice(name.length + 1)) : '';
+}
+
+export const token = () => store.get(TOKEN_KEY) || readCookie(TOKEN_COOKIE) || '';
+
+export function saveToken(tok) {
+  store.set(TOKEN_KEY, tok);
+  const secure = location.protocol === 'https:' ? '; Secure' : '';
+  document.cookie = `${TOKEN_COOKIE}=${encodeURIComponent(tok)}; path=/; max-age=${COOKIE_AGE}; SameSite=Lax${secure}`;
 }
 
 export function forgetToken() {
-  localStorage.removeItem(TOKEN_KEY);
+  store.del(TOKEN_KEY);
+  document.cookie = `${TOKEN_COOKIE}=; path=/; max-age=0; SameSite=Lax`;
 }
 
 export class ApiError extends Error {

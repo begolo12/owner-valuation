@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { saveConnection, token } from '../api.js';
+import { saveToken, token } from '../api.js';
 import { Notice } from '../components.jsx';
 
 export default function Settings({ meta, onSaved, onForget }) {
@@ -13,7 +13,7 @@ export default function Settings({ meta, onSaved, onForget }) {
       return;
     }
     setBusy(true);
-    saveConnection({ tok: tok.trim() });
+    saveToken(tok.trim());
     setStatus({ text: 'Token tersimpan. Memuat ulang…' });
     onSaved();
   };
@@ -32,7 +32,9 @@ export default function Settings({ meta, onSaved, onForget }) {
       <div className="card" style={{ marginTop: 12 }}>
         <h2>Token aplikasi</h2>
         <p className="sub">
-          {token() ? `Terpasang: ${token().slice(0, 6)}…${token().slice(-4)}` : 'Belum ada token.'}
+          {token()
+            ? `Terpasang: ${token().slice(0, 6)}…${token().slice(-4)} — perangkat ini langsung masuk tanpa isi ulang.`
+            : 'Belum ada token. Isi untuk membuka data.'}
         </p>
         <div className="field">
           <label htmlFor="nt">Token baru</label>
@@ -42,12 +44,14 @@ export default function Settings({ meta, onSaved, onForget }) {
             value={tok}
             onChange={(e) => setTok(e.target.value)}
             placeholder="••••••••"
+            autoComplete="current-password"
           />
           <div className="help">
-            Token dibuat di server (env <code>APP_TOKEN</code>). Tidak pernah disimpan di dalam bundle.
+            Token dibuat di server (env <code>APP_TOKEN</code>) dan tidak pernah ikut ke dalam
+            bundle publik.
           </div>
         </div>
-        <div className="row" style={{ marginTop: 12 }}>
+        <div className="row" style={{ marginTop: 14 }}>
           <button className="primary" disabled={busy} onClick={save}>
             Simpan & muat ulang
           </button>
@@ -62,12 +66,8 @@ export default function Settings({ meta, onSaved, onForget }) {
         <p className="sub">
           Kuartal berjalan: <strong>{meta.currentQuarter}</strong>
         </p>
-        <div className="help">
-          Model: {meta.models.join(', ')}
-        </div>
-        <div className="help">
-          Skema bayar: {meta.paymentMethods.join(', ')}
-        </div>
+        <div className="help">Model: {meta.models.join(', ')}</div>
+        <div className="help">Skema bayar: {meta.paymentMethods.join(', ')}</div>
       </div>
 
       <div className="card">
